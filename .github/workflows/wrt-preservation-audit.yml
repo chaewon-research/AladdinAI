@@ -1,0 +1,37 @@
+name: WRT document preservation diagnostic
+
+on:
+  push:
+    branches: [audit/wrt-preservation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install native converter dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends gcc make libzip-dev zlib1g-dev
+      - name: Build native WRT engine
+        run: make -C backend/native/wrt wrt-engine
+      - name: Run preservation diagnostic
+        run: |
+          python wrt_preservation_audit/wrt_preservation_probe.py \
+            --engine backend/native/wrt/wrt-engine \
+            --out wrt_preservation_audit/results.json
+      - name: Save report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wrt-preservation-report
+          path: wrt_preservation_audit/results.json
+          if-no-files-found: warn
